@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Snake Game </title>
+
+    <style>
+        body {
+            background: #020617;
+            color: white;
+            font-family: Arial;
+            text-align: center;
+        }
+
+        h1 { letter-spacing: 3px; }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(16, 25px);
+            gap: 2px;
+            background: #1e293b;
+            padding: 10px;
+            margin: auto;
+            width: max-content;
+            border: 5px solid #64748b;
+        }
+
+        .cell {
+            width: 25px;
+            height: 25px;
+            background: #0f172a;
+        }
+
+        /* 🐍 Snake */
+        .snake-head {
+            background: #22c55e;
+            box-shadow: 0 0 10px #22c55e;
+            position: relative;
+        }
+
+        .snake-head::before,
+        .snake-head::after {
+            content: "";
+            width: 5px;
+            height: 5px;
+            background: black;
+            border-radius: 50%;
+            position: absolute;
+            top: 6px;
+        }
+
+        .snake-head::before { left: 5px; }
+        .snake-head::after { right: 5px; }
+
+        .snake-body {
+            background: #4ade80;
+            box-shadow: 0 0 5px #4ade80;
+        }
+
+        /* 🍎 Apple */
+        .food {
+            position: relative;
+            background: radial-gradient(circle at 30% 30%, #ff9999, #ff0000);
+            border-radius: 50%;
+            box-shadow: 0 0 10px red;
+        }
+
+        .food::before {
+            content: "";
+            position: absolute;
+            width: 8px;
+            height: 4px;
+            background: green;
+            top: -3px;
+            left: 8px;
+            border-radius: 50%;
+            transform: rotate(-30deg);
+        }
+
+        .food::after {
+            content: "";
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 50%;
+            top: 5px;
+            left: 6px;
+        }
+
+        /* 🤖 AI STYLE BUTTON */
+        button {
+            margin: 8px;
+            padding: 12px 22px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+
+            background: linear-gradient(135deg, #00f5ff, #7c3aed, #22c55e);
+            color: white;
+
+            box-shadow: 0 0 10px #00f5ff, 0 0 20px #7c3aed;
+            transition: 0.3s ease;
+        }
+
+        button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px #00f5ff, 0 0 40px #7c3aed;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        /* 🔥 Fancy Footer */
+        .fancy-footer {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .card {
+            background: linear-gradient(145deg, #0f172a, #1e293b);
+            padding: 15px 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 15px rgba(59,130,246,0.5);
+            text-align: center;
+            animation: glow 2s infinite alternate;
+        }
+
+        .card h3 {
+            margin-bottom: 10px;
+            color: #60a5fa;
+        }
+
+        .card span {
+            color: #22c55e;
+            font-weight: bold;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 10px #3b82f6; }
+            to { box-shadow: 0 0 25px #60a5fa; }
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>🐍 SNAKE GAME </h1>
+
+<p>
+Score: <span id="score">0</span> |
+Level: <span id="level">1</span> |
+High Score: <span id="high">0</span>
+</p>
+
+<div class="board"></div>
+
+<div>
+    <button onclick="startGame()">Start</button>
+    <button onclick="stopGame()">Stop</button>
+    <button onclick="restartGame()">Restart</button>
+</div>
+
+<div>
+<br>
+<button onclick="setDir(-size)">↑</button><br>
+<button onclick="setDir(-1)">←</button>
+<button onclick="setDir(1)">→</button><br>
+<button onclick="setDir(size)">↓</button>
+</div>
+
+<footer class="fancy-footer">
+    <div class="card">
+        <h3>🚀 Created by</h3>
+        <p>Vinoth I <span>RA2511003011185</span></p>
+        <p>Jeevan TS <span>RA2511003011203</span></p>
+        <p>Dharunish GR <span>RA2511003011204</span></p>
+    </div>
+</footer>
+
+<script>
+const board = document.querySelector(".board");
+const size = 16;
+let cells = [];
+
+for (let i = 0; i < size * size; i++) {
+    let d = document.createElement("div");
+    d.classList.add("cell");
+    board.appendChild(d);
+    cells.push(d);
+}
+
+let snake, direction, food, score, level, speed, game;
+let highScore = localStorage.getItem("high") || 0;
+
+const eatSound = new Audio("https://www.soundjay.com/button/beep-07.wav");
+const bgMusic = new Audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3");
+bgMusic.loop = true;
+bgMusic.volume = 0.2;
+
+document.addEventListener("keydown", e => {
+    if (e.key==="ArrowUp") setDir(-size);
+    if (e.key==="ArrowDown") setDir(size);
+    if (e.key==="ArrowLeft") setDir(-1);
+    if (e.key==="ArrowRight") setDir(1);
+});
+
+function setDir(dir){
+    if (dir===-1 && direction===1) return;
+    if (dir===1 && direction===-1) return;
+    if (dir===-size && direction===size) return;
+    if (dir===size && direction===-size) return;
+    direction = dir;
+}
+
+function init(){
+    snake=[120,119,118];
+    direction=1;
+    score=0;
+    level=1;
+    speed=200;
+    food=randomFood();
+    updateHUD();
+    draw();
+}
+
+function gameLoop(){
+    let newHead = snake[0]+direction;
+
+    if (
+        newHead<0 || newHead>=size*size ||
+        (direction===1 && snake[0]%size===15) ||
+        (direction===-1 && snake[0]%size===0) ||
+        snake.includes(newHead)
+    ){
+        alert("Game Over!");
+        if(score>highScore){
+            localStorage.setItem("high", score);
+        }
+        clearInterval(game);
+        bgMusic.pause();
+        return;
+    }
+
+    snake.unshift(newHead);
+
+    if(newHead===food){
+        score+=10;
+        eatSound.play();
+
+        if(score%50===0){
+            level++;
+            speed-=20;
+            clearInterval(game);
+            game=setInterval(gameLoop,speed);
+        }
+
+        food=randomFood();
+    } else {
+        snake.pop();
+    }
+
+    updateHUD();
+    draw();
+}
+
+function draw(){
+    cells.forEach(c=>c.className="cell");
+
+    snake.forEach((i,idx)=>{
+        cells[i].classList.add(idx===0?"snake-head":"snake-body");
+    });
+
+    cells[food].classList.add("food");
+}
+
+function randomFood(){
+    let p;
+    do{
+        p=Math.floor(Math.random()*size*size);
+    }while(snake && snake.includes(p));
+    return p;
+}
+
+function updateHUD(){
+    document.getElementById("score").innerText=score;
+    document.getElementById("level").innerText=level;
+    document.getElementById("high").innerText=highScore;
+}
+
+function startGame(){
+    clearInterval(game);
+    init();
+    game=setInterval(gameLoop,speed);
+    bgMusic.play();
+}
+
+function stopGame(){
+    clearInterval(game);
+    bgMusic.pause();
+    alert("Game Stopped");
+}
+
+function restartGame(){
+    startGame();
+}
+</script>
+
+</body>
+</html>
